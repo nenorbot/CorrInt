@@ -9,8 +9,6 @@
         [hiccup.page-helpers]
         [hiccup.form-helpers]
         [incanter core charts excel stats io]))
-(import [java.io FileInputStream]
-        [org.apache.commons.math.stat.correlation PearsonsCorrelation])
 
 (defn read-my-xls [xls]
   (with-data (read-xls xls)
@@ -38,7 +36,7 @@
 (defn write-lines [f seq]
    (with-open [w (clojure.java.io/writer f)]
     (doseq [x seq]
-      (.write w x)
+      (.write w (str x))
       (.newLine w))))
 
 (defn calc-score [scores factors]
@@ -62,15 +60,15 @@
     (avg (map (fn [[x y]] (Math/abs (- x y)))
          (filter (fn [[x y]] (and (not= x -2) (not (nil? y)))) (map vector data zhong-scores))))))
 
-(defn get-avgs [files]
-  (map calc-avg-distance
-    (map #(integrate files %)
-      (filter #(= 1 (reduce + %)) (clojure.contrib.combinatorics/selections (map #(/ % 10) (range 1 6)) 3)))))
+;(defn get-avgs [files]
+;  (map calc-avg-distance
+;    (map #(integrate files %)
+;      (filter #(= 1 (reduce + %)) (clojure.contrib.combinatorics/selections (map #(/ % 10) (range 1 6)) 3)))))
 
 (defn sadger-cohen [files]
   (apply min (map calc-avg-distance
                (map #(integrate files %)
-                 (filter #(= 1 (reduce + %)) (clojure.contrib.combinatorics/selections (map #(/ % 10) (range 1 6)) 3))))))
+                 (filter #(= 1 (reduce + %)) (clojure.contrib.combinatorics/selections (map #(/ % 10) (range 1 6)) (count files)))))))
 
 (defn correlate [matrix idx1 idx2]
   (if (and idx1 idx2)
@@ -91,21 +89,12 @@
 
 (defpage "/success" []
   (common/layout
-    [:h2 "File uploaded!"]))
-; Show this page in case of failure
-(defpage "/fail" []
-  (common/layout
-    [:h2 "Something went wrong"]))
+    [:h2 "File uploaded!"]
+    (link-to "/" "Return to Main Page")))
 
 (defpage [:post "/upload"] {:keys [file]}
-  (spit "C://Users//ronenc//CorrInt//test.txt" (str file))
-  (io/copy (io/file (:tempfile file)) (io/file "C://Users//ronenc//CorrInt//booga.mp3"))
+  (io/copy (io/file (:tempfile file)) (io/file (str "datasets" java.io.File/separator (:filename file))))
   (resp/redirect "/success"))
-;(if (= "0" (:size file))
-  ;  (resp/redirect "/success")
-  ;  (resp/redirect "/fail")))
-
-;(write-lines (str root-dir "sample.csv") (analyze-data (str root-dir "CEL-Seq_expression_datasetA.xls") (str root-dir "zhongybongy.xls"))))))
 
 (defpage "/upload" []
   (common/layout
@@ -116,35 +105,24 @@
       [:br]
       (submit-button "Upload"))))
 
-(defpage "/welcome" []
-  ;(write-lines "C://Users//ronenc//CorrInt//sample1.csv" (analyze-data "C://Users//ronenc//CorrInt//CEL-Seq_expression_datasetA.xls"
-  ;  "C://Users//ronenc//CorrInt//zhong.xlsx"))
-  ;(write-lines "C://Users//ronenc//CorrInt//sample2.csv" (analyze-data "C://Users//ronenc//CorrInt//Dev_Timecourse_Cele_avg_Aprobe.xls"
-  ;                                                         "C://Users//ronenc//CorrInt//zhong.xlsx"))
-  ;(write-lines "C://Users//ronenc//CorrInt//sample3.csv" (analyze-data "C://Users//ronenc//CorrInt//NN_expression_matrix.xls"
-  ;                                                         "C://Users//ronenc//CorrInt//zhong.xlsx"))
-  ;(write-lines "C://Users//ronenc//CorrInt//correlations.csv" (map str (integrate ["C://Users//ronenc//CorrInt//sample1.csv"
-  ;                                                                        "C://Users//ronenc//CorrInt//sample2.csv"
-  ;                                                                        "C://Users//ronenc//CorrInt//sample3.csv"]
-  ;                                                           [0.5 0.5 0.5]))))
-
-  ;(common/layout
-  ;  (map (fn [x] [:p x]) (integrate ["C://Users//ronenc//CorrInt//sample1.csv"
-  ;                                   "C://Users//ronenc//CorrInt//sample2.csv"
-  ;                                   "C://Users//ronenc//CorrInt//sample3.csv"]
-  ;                         [1 1 1]))))
-
+(defpage [:post "/integrate"] {:as m}
+  (spit "/home/sadger/CorrInt/test.txt" m)
   (common/layout
-    ;[:p (calc-avg-distance (integrate ["C://Users//ronenc//CorrInt//sample1.csv"
-    ;                                                                    "C://Users//ronenc//CorrInt//sample2.csv"
-    ;                                                                    "C://Users//ronenc//CorrInt//sample3.csv"]
-    ;                                                       [0.2 0.3 0.5]))]))
-    (map (fn [x] [:p x]) (get-avgs ["C://Users//ronenc//CorrInt//sample1.csv"
-                       "C://Users//ronenc//CorrInt//sample2.csv"
-                       "C://Users//ronenc//CorrInt//sample3.csv"]))
-    [:p (sadger-cohen ["C://Users//ronenc//CorrInt//sample1.csv"
-                       "C://Users//ronenc//CorrInt//sample2.csv"
-                       "C://Users//ronenc//CorrInt//sample3.csv"])]))
+    [:p "Thanks!"]))
+
+(defpage "/integrate" []
+  (common/layout
+    [:h2 "Select Datasets to Integrate"]
+    (form-to [:post "/integrate"]
+      (map (fn [f] [:p (check-box "set" false (.getName f)) (.getName f) [:br]])
+        (rest (file-seq (java.io.File. "analyzed"))))
+      (submit-button "Integrate!"))))
+
+
+(defpage "/" []
+  (common/layout
+    (link-to "/upload" "Upload Dataset")
+    (link-to "/integrate" "Integrate Datasets")))
 
 
 
