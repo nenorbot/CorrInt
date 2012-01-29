@@ -1,6 +1,13 @@
-(use '[incanter core charts excel])
+(use '[incanter core charts excel stats io])
 (import [java.io FileInputStream]
   [org.apache.commons.math.stat.correlation PearsonsCorrelation])
+(require [clojure.contrib.combinatorics :as combi])
+
+(defmacro time2 [label expr]
+  `(let [start# (. System (nanoTime))
+         ret# ~expr]
+     (prn (str "Elapsed time for " ~label " " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
+     ret#))
 
 (defn read-my-xls [xls]
   (let [file xls]
@@ -9,6 +16,10 @@
 
 (defn get-from-xls [xls what]
   (with-data (read-xls xls)
+    ($ what)))
+
+(defn get-from-csv [csv what]
+  (with-data (read-dataset csv :header true)
     ($ what)))
 
 (defn indexize [xls]
@@ -22,56 +33,72 @@
   (with-data (read-xls xls)
     (to-matrix $data)))
 
-(defn to-java-matrix [matrix]
-  (let [rows (count matrix)
-        columns (count (first matrix))
-        array (make-array Double/TYPE rows columns)]
-    (dotimes [x rows]
-      (dotimes [y columns]
-        (aset array x y (nth (nth matrix x) y))))
-    array))
+(defn write-lines [f seq]
+  (with-open [w (clojure.java.io/writer f)]
+    (doseq [x seq]
+      (.write w x)
+      (.newLine w))))
 
-(defn calc-pearsons [data1 data2]
-  (let [pearsons (PearsonsCorrelation.)]
-    (.correlation pearsons data1 data2)))
+(defn calc-score [scores factors]
+  (or (some #{-2} scores)
+    (reduce + (map * factors scores))))
 
-(defn to-java-array [matrix idx]
-  (let [data (nth matrix idx)
-       array (make-array Double/TYPE (count data))]
-    (dotimes [x (count data)]
-      (aset array x (nth data x)))
-  array))
+(defn get-all-genes2 [files]
+  (apply map (fn [& args] args)
+    (map #(get-from-csv % 2) files)))
 
-(defn stam [xls standard]
-  (let [indices (indexize xls)
-        matrix (xls-to-matrix xls)]
-    (print "step1")
-    (loop [a-gene (get-from-xls standard "Gene1")
-           b-gene (get-from-xls standard "Gene2")
-           acc [:div]
-           n 5]
-      ;(if (empty? a-gene)
-      ;  acc)
-      (print n)
-      (if (= 0 n) acc
-        (recur (rest a-gene) (rest b-gene) acc (dec n))))))
+(defn integrate [files factors]
+  (map #(calc-score % factors)
+    (get-all-genes2 files)))
+
+(defn correlate [matrix idx1 idx2]
+  (if (and idx1 idx2)
+    (correlation (sel matrix :rows idx1 :except-cols 0) (sel matrix :rows idx2 :except-cols 0))
+    -2))
 
 (defn analyze-data [xls standard]
-  (let [indices (indexize xls)
-        matrix (xls-to-matrix xls)]
-    (loop [a-gene (get-from-xls standard "Gene1")
-           b-gene (get-from-xls standard "Gene2")
-           acc [:div]
-           n 5]
-      ;(if (empty? a-gene)
-      ;  acc)
-      (if (= 0 n) acc
+  (let [indices (time2 :indices (indexize xls))
+        matrix (time2 :xls-to-matirx (xls-to-matrix xls))]
+    (loop [a-gene (time2 :a-gene (get-from-xls standard "Gene1"))
+           b-gene (time2 :b-gene (get-from-xls standard "Gene2"))
+           acc ["Gene1,Gene2,Score"] n 0]
+     (if (= 0 (mod n 1000)) (println n))
+      (if (empty? a-gene)
+        acc
         (let [idx1 (indices (first a-gene)) idx2 (indices (first b-gene))]
-          (if (and idx1 idx2)
-            (let [pc (calc-pearsons (to-java-array matrix idx1) (to-java-array matrix idx2))]
-              (recur (rest a-gene) (rest b-gene) (conj acc [:p (str (first a-gene) " ") (str (first b-gene) " ") pc]) (dec n)))
-            (recur (rest a-gene) (rest b-gene) acc (dec n))))))))
+          (recur (rest a-gene) (rest b-gene) (conj acc (str (first a-gene) "," (first b-gene) "," (correlate matrix idx1 idx2))) (inc n)))))))
+
+(defn calc-score [scores factors]
+  (or (some #{-2} scores)
+    (reduce + (map * factors scores))))
+
+(defn get-all-genes [files]
+  (apply map (fn [& args] args)
+    (map #(get-from-csv % "Score") files)))
+
+(defn integrate [files factors]
+  (map #(calc-score % factors)
+    (get-all-genes files)))
+
+(defn test2 [xls]
+  (time (let [matrix (xls-to-matrix xls)])))
+
+(defn avg [seq]
+  (let [[sum count] (reduce (fn [[x y] curr] [(+ x curr) (inc y)]) [0 0] seq)]
+    (/ sum count)))
+
+(defn calc-avg-distance [data]
+  (let [zhong-scores (get-from-xls "C://Users//ronenc//CorrInt//zhong.xlsx" 2)]
+    (avg (map (fn [[x y]] (Math/abs (- x y)))
+           (filter (fn [[x y]] (not= x -2)) (map vector data zhong-scores))))))
 
 
+(defn get-avgs [files]
+  (map calc-avg-distance
+    (map #(integrate files %)
+      (filter #(= 10 (reduce + %)) (clojure.contrib.combinatorics/selections (range 1 10) 3)))))
 
-
+(defn sadger-cohen [files]
+  (apply min (map calc-avg-distance
+               (map #(integrate files %)
+                 (filter #(= 10 (reduce + %)) (clojure.contrib.combinatorics/selections (range 1 10) 3))))))
