@@ -1,6 +1,5 @@
 (ns CorrInt.views.welcome
   (:require [CorrInt.views.common :as common]
-            [noir.content.getting-started]
             [clojure.java.io :as io]
             [noir.response :as resp]
             [clojure.contrib.combinatorics :as combi]
@@ -167,7 +166,7 @@
       (submit-button "View!"))]))
 
 (defn img-link [url img]
-  [:a {:href url} [:image {:src img :border 0 :width 150 :height 150 :align "left"}]])
+  (link-to url [:image {:src img :border 0 :width 150 :height 150 :align "left"}]))
 
 (defn get-link-bundle [url image text]
   [(img-link url image) (link-to url [:b text])])
@@ -187,26 +186,3 @@
   (common/layout
   (make-table [["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "bbbbbbbbbb" "ccccccccccccccccccccccccccccccccccc"] ["1" "2" "3"] ["4" "5" "6"]]
     {:class "table.result"})))
-
-;(defpage "/" []
-;  (common/layout
-;    [:p {:style "text-align:center;"}
-;     (img-link "/upload" "/img/upload.png")
-;     "Upload"]
-;     [:br {:clear "ALL"}]
-;    [:p {:style "text-align:center;"}(img-link "/integrate" "/img/integrate.jpg")
-;      "Integrate"]
-;     [:br {:clear "ALL"}]
-;    [:p {:style "text-align:center;"}
-;     (img-link "/gene-viewer" "/img/magnify.jpg")
-;      "View Gene Information"]
-;     [:br {:clear "ALL"}]
-;     (link-to "/upload" "Upload Dataset")
-;     [:br {:clear "ALL"}]
-;     (link-to "/integrate" "Integrate Datasets")
-;     [:br ]
-;     (link-to "/gene-viewer" "View genes")
-;  (with-table ["hello" "mate"] ["how you" "doing"])))
-
-
-
