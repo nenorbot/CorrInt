@@ -66,7 +66,7 @@
     (/ sum count)))
 
 (defn calc-avg-distance [data]
-  (let [zhong-scores (get-from-xls "C://Users//ronenc//CorrInt//zhong.xlsx" 2)]
+  (let [zhong-scores (get-from-xls "zhong.xlsx" 2)]
     (avg (map (fn [[x y]] (Math/abs (- x y)))
          (filter (fn [[x y]] (and (not= x -2) (not (nil? y)))) (map vector data zhong-scores))))))
 
