@@ -12,6 +12,14 @@
         [incanter core charts excel stats io]
         [clojure.string]))
 
+(defn make-table
+  ([t] (make-table t nil))
+  ([t properties]
+    [:table (or properties {}) (map (fn [s] (into [:tr] (map (fn [x] [:td x]) s))) t)]))
+
+(defmacro with-table [& body] ; needs a better name
+  `(make-table [~@body]))
+
 (defn get-from-xls [xls what]
     (with-data (read-xls xls)
       ($ what)))
@@ -37,6 +45,11 @@
       (.write w (str x))
       (.newLine w))))
 
+(defn write-csv [f header lines]
+  (if header
+    (write-lines f header))
+  (write-lines f (map #(str-utils/str-join "," %) lines)))
+
 (defn calc-score [scores factors]
   (or (some #{-2} scores)
       (reduce + (map (partial * 100) factors scores))))
@@ -58,14 +71,21 @@
     (avg (map (fn [[x y]] (Math/abs (- x y)))
          (filter (fn [[x y]] (and (not= x -2) (not (nil? y)))) (map vector data zhong-scores))))))
 
+(defn save-integration [files s]
+  (write-csv "integrated/" nil (map (fn [[g factors]] (conj factors g)))))
+
+
 (defn sadger-cohen [files]
   (let [factors (filter #(= 1 (reduce + %)) (clojure.contrib.combinatorics/selections (map #(/ % 10) (range 0 11)) (count files)))]
-    (sort-by first (map vector (map calc-avg-distance
-                 (map #(integrate files %) factors)) factors))))
+    (sort-by first (map conj factors (map calc-avg-distance
+                 (map #(integrate files %) factors))))))
+
+(defn sel-row [matrix idx]
+  (sel matrix :rows idx :except-cols 0))
 
 (defn correlate [matrix idx1 idx2]
   (if (and idx1 idx2)
-    (let [c (Math/abs (correlation (sel matrix :rows idx1 :except-cols 0) (sel matrix :rows idx2 :except-cols 0)))]
+    (let [c (Math/abs (correlation (sel-row matrix idx1) (sel-row matrix idx2)))]
       (max c 0))
     -2))
 
@@ -85,13 +105,6 @@
     [:h2 "File uploaded!"]
     (link-to "/" "Return to Main Page")))
 
-(defn write-csv [f header lines]
-  (write-lines f header)
-  (write-lines f (map #(str-utils/str-join "," %) lines)))
-
-(defn brify [seq]
-  (interpose [:br] seq))
-
 (defpage [:post "/upload"] {:keys [file]}
   (io/copy (io/file (:tempfile file)) (io/file (str "datasets" java.io.File/separator (:filename file))))
   (write-csv (str "analyzed" java.io.File/separator (:filename file) ".csv") ["Gene1,Gene2,Score"]
@@ -107,33 +120,33 @@
       [:br]
       (submit-button "Upload"))))
 
+(defn get-file-name [f]
+  (.substring f (inc (.lastIndexOf f "\\")) (.indexOf f ".")))
+
 (defpage [:post "/integrate"] {:as m}
-  (spit "test.txt" m)
   (common/layout
-    (map (fn [[g factors]] [:p (str g " " (apply str (interpose " " factors)))])
-      (sadger-cohen (:dataset m)))))
+    (make-table (into [(into ["Score"] (map get-file-name (:dataset m)))]
+                (sadger-cohen (:dataset m))) {:class "table.result"})))
 
 (defn get-file-checkboxes [dir-name]
-  (map (fn [f] [:p (.getName f) (check-box "dataset[]" false (.getPath f))])
+  (map (fn [f] [(get-file-name (.getName f)) (check-box "dataset[]" false (.getPath f))])
     (rest (file-seq (java.io.File. dir-name)))))
 
 (defpage "/integrate" []
   (common/layout
-    [:h2 "Select Datasets to Integrate"]
+    [:p
+    [:font {:size 8} "Select Datasets to Integrate"]
     (form-to [:post "/integrate"]
-      (get-file-checkboxes "analyzed")
-      (submit-button "Integrate!"))))
+      (make-table (get-file-checkboxes "analyzed"))
+      (submit-button "Integrate!"))]))
 
 (defn create-plot [genes dataset]
   (let [matrix (xls-to-matrix dataset)
        cols (count (sel matrix :rows 0))
        index (indexize dataset)]
-    (reduce #(add-points %1 (range cols) (sel matrix :rows (index %2)))
-      (xy-plot (range cols) (sel matrix :rows (index (first genes))))
+    (reduce #(add-points %1 (range cols) (sel-row matrix (index %2)))
+      (xy-plot (range cols) (sel-row matrix (index (first genes))))
         (rest genes))))
-
-(defn get-file-name [f]
-  (.getName (java.io.File. f)))
 
 (defn create-plot-img [genes dataset]
   (let [file-name (str (get-file-name dataset)  ".png")]
@@ -147,18 +160,53 @@
 
 (defpage "/gene-viewer" []
   (common/layout
+    [:p
     (form-to [:post "/gene-viewer"]
+      (make-table (get-file-checkboxes "datasets"))
       [:p "Enter gene id's: " (text-field "genes")]
-      (get-file-checkboxes "datasets")
-      (submit-button "View!"))))
+      (submit-button "View!"))]))
+
+(defn img-link [url img]
+  [:a {:href url} [:image {:src img :border 0 :width 150 :height 150 :align "left"}]])
+
+(defn get-link-bundle [url image text]
+  [(img-link url image) (link-to url [:b text])])
 
 (defpage "/" []
   (common/layout
-    (link-to "/upload" "Upload Dataset")
-    [:br]
-    (link-to "/integrate" "Integrate Datasets")
-    [:br]
-    (link-to "/gene-viewer" "View genes")))
+    [:p
+     [:b [:font {:size 16} "Welcome to CorrInt!"]]
+     [:br]
+     (with-table
+       ["What do you want to do?"]
+       (get-link-bundle "/upload" "/img/upload.png" "Upload!")
+       (get-link-bundle "/integrate" "/img/integrate.jpg" "Integrate!")
+       (get-link-bundle "/gene-viewer" "/img/magnify.jpg" "View Genes!"))]))
+
+(defpage "/test" []
+  (common/layout
+  (make-table [["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "bbbbbbbbbb" "ccccccccccccccccccccccccccccccccccc"] ["1" "2" "3"] ["4" "5" "6"]]
+    {:class "table.result"})))
+
+;(defpage "/" []
+;  (common/layout
+;    [:p {:style "text-align:center;"}
+;     (img-link "/upload" "/img/upload.png")
+;     "Upload"]
+;     [:br {:clear "ALL"}]
+;    [:p {:style "text-align:center;"}(img-link "/integrate" "/img/integrate.jpg")
+;      "Integrate"]
+;     [:br {:clear "ALL"}]
+;    [:p {:style "text-align:center;"}
+;     (img-link "/gene-viewer" "/img/magnify.jpg")
+;      "View Gene Information"]
+;     [:br {:clear "ALL"}]
+;     (link-to "/upload" "Upload Dataset")
+;     [:br {:clear "ALL"}]
+;     (link-to "/integrate" "Integrate Datasets")
+;     [:br ]
+;     (link-to "/gene-viewer" "View genes")
+;  (with-table ["hello" "mate"] ["how you" "doing"])))
 
 
 
