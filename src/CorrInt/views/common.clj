@@ -5,7 +5,7 @@
 (defpartial layout [& content]
             (html5
               [:head
-               [:title "testsite"]
+               [:title "CorrInt - Correlation Integration"]
                (include-css "/css/reset.css")]
               [:body
                [:div#wrapper
