@@ -125,7 +125,7 @@
 (defpage [:post "/integrate"] {:as m}
   (common/layout
     (make-table (into [(into ["Score"] (map get-file-name (:dataset m)))]
-                (sadger-cohen (:dataset m))) {:class "table.result"})))
+                (sadger-cohen (:dataset m))) {:class "table_result"})))
 
 (defn get-file-checkboxes [dir-name]
   (map (fn [f] [(get-file-name (.getName f)) (check-box "dataset[]" false (.getPath f))])
@@ -181,8 +181,3 @@
        (get-link-bundle "/upload" "/img/upload.png" "Upload!")
        (get-link-bundle "/integrate" "/img/integrate.jpg" "Integrate!")
        (get-link-bundle "/gene-viewer" "/img/magnify.jpg" "View Genes!"))]))
-
-(defpage "/test" []
-  (common/layout
-  (make-table [["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "bbbbbbbbbb" "ccccccccccccccccccccccccccccccccccc"] ["1" "2" "3"] ["4" "5" "6"]]
-    {:class "table.result"})))

@@ -11,10 +11,10 @@ del, dfn, em, img, q, dl, dt, dd, ol, ul, li,
 fieldset, form, label, legend,
 table, caption, tbody, tfoot, thead, tr, th, td,
 article, aside, dialog, figure, footer, header,
-hgroup, nav, section {
-	margin: 0;
-	padding: 0;
-	border: 0;
+hgroup, nav, section,table.result {
+	margin: inherit;
+	padding: inherit;
+	border: inherit;
 	font-weight: inherit;
 	font-style: inherit;
 	font-size: 100%;
@@ -28,15 +28,30 @@ hgroup, nav, section {
 }
 
 body {
+    margin: 0;
+    padding: 0;
+    border: 0;
 	line-height: 1.5;
-    background-image:url('/img/dna.jpg');
-    background-repeat:no-repeat;
-    background-position: 500px 200px;
+    background-image:url('/img/bg.png');
+}
+
+p {
+    text-align: center;
 }
 
 table {
 	border-collapse: separate;
 	border-spacing: 0;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+
+.table_result {
+   margin-left: auto;
+   margin-right: auto;
+   padding: 10;
+   border: 2px solid black;
 }
 
 caption, th, td {
@@ -44,6 +59,7 @@ caption, th, td {
 	font-weight: normal;
 	float:none !important;
 }
+
 table, th, td {
 	vertical-align: middle;
 }
