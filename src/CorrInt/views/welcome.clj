@@ -181,14 +181,19 @@
     [:p [:font {:size 8} "Select Datasets to Integrate"]
      (form-to [:post "/integrate"]
        (make-table (get-file-checkboxes "analyzed"))
-       (submit-button "Integrate!"))]))
+       [:p (submit-button "Integrate!")])]))
 
 (defn create-plot [genes dataset]
   (let [matrix (xls-to-matrix dataset)
         cols (count (sel matrix :rows 0))
         index (indexize dataset)]
-    (reduce #(add-points %1 (range cols) (sel-row matrix (index %2)))
-      (xy-plot (range cols) (sel-row matrix (index (first genes))))
+    (reduce #(add-points %1 (range cols) (sel-row matrix (index %2)) :series-label %2)
+      (scatter-plot (range cols) (sel-row matrix (index (first genes)))
+        :legend true
+        :x-label "Experiment"
+        :y-label "Expression Level"
+        :series-label (first genes)
+        :title (get-file-name dataset))
       (rest genes))))
 
 (defn create-plot-img [genes dataset]
@@ -198,8 +203,8 @@
 
 (defpage [:post "/gene-viewer"] {:as m}
   (common/layout
-    (with-table
-      (map (fn [f] [:image {:src (create-plot-img (split (:genes m) #",") f)}])
+    (make-table
+      (map (fn [f] [[:image {:src (create-plot-img (split (:genes m) #",") f)}]])
         (:dataset m)))))
 
 (defpage "/gene-viewer" []
@@ -207,7 +212,7 @@
     [:p (form-to [:post "/gene-viewer"]
       (make-table (get-file-checkboxes "datasets"))
       [:p "Enter gene id's: " (text-field "genes")]
-      (submit-button "View!"))]))
+      [:p (submit-button "View!")])]))
 
 (defn img-link [url img]
   (link-to url [:image {:src img :border 0 :width 150 :height 150 :align "left"}]))
