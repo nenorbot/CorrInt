@@ -130,8 +130,7 @@
 
 (defpage "/success" []
   (common/layout
-    [:h2 "File uploaded!"]
-    (link-to "/" "Return to Main Page")))
+    [:p "File uploaded!"]))
 
 (defpage [:post "/upload"] {:keys [file]}
   (io/copy (io/file (:tempfile file)) (io/file (str "datasets" java.io.File/separator (:filename file))))
@@ -143,10 +142,10 @@
   (common/layout
     (form-to {:enctype "multipart/form-data"}
       [:post "/upload"]
-      (label :file "File to upload:")
-      (file-upload :file )
-      [:br ]
-      (submit-button "Upload"))))
+      (with-table
+        [(label :file "File to upload:")]
+        [(file-upload :file)]
+        [(submit-button "Upload")]))))
 
 (defn get-file-name [f]
   (.substring f (inc (.lastIndexOf f "\\")) (.indexOf f ".")))
@@ -183,17 +182,29 @@
        (make-table (get-file-checkboxes "analyzed"))
        [:p (submit-button "Integrate!")])]))
 
+; take the log of gene expression taken from RNA-Seq
+(defn normalize-data [data]
+  (map #(Math/log (inc %)) data))
+
+(defn extract-data [name matrix index gene]
+  (let [data (sel-row matrix (index gene))]
+  (cond  ; temporary patch until we can put this in metadata
+    (= name "CEL-Seq_expression_datasetA") (normalize-data data)
+    (= name "Michal_Strains_timecourse_N2_CB4856") (normalize-data data)
+    :else data)))
+
 (defn create-plot [genes dataset]
   (let [matrix (xls-to-matrix dataset)
         cols (count (sel matrix :rows 0))
-        index (indexize dataset)]
-    (reduce #(add-points %1 (range cols) (sel-row matrix (index %2)) :series-label %2)
-      (scatter-plot (range cols) (sel-row matrix (index (first genes)))
+        index (indexize dataset)
+        pretty-name (get-file-name dataset)]
+    (reduce #(add-points %1 (range cols) (extract-data pretty-name matrix index %2) :series-label %2)
+      (scatter-plot (range cols) (extract-data pretty-name matrix index (first genes))
         :legend true
         :x-label "Experiment"
         :y-label "Expression Level"
         :series-label (first genes)
-        :title (get-file-name dataset))
+        :title pretty-name)
       (rest genes))))
 
 (defn create-plot-img [genes dataset]
